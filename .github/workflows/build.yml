@@ -5,6 +5,8 @@ on:
     branches: [ master ]
     paths-ignore:
       - "README.md"
+  # 支持在 Actions 页面手动触发，或使用 gh workflow run build.yml --ref master
+  workflow_dispatch:
 
 jobs:
   build:
