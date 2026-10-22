@@ -1,6 +1,6 @@
 # syntax=docker/dockerfile:1
 #
-# elemenx/php74-alpine-base, rebuilt with PHP 7.4.33 + the official PHP
+# writing/docker-php74-fpm-alpine-base, rebuilt with PHP 7.4.33 + the official PHP
 # security-team backport for CVE-2026-109618 / CVE-2026-109619 ("PHP2Shell").
 #
 #   advisory : https://www.php.net/archive/2026.php#2026-10-21-5
@@ -12,7 +12,7 @@
 #
 # Build:
 #   docker buildx build --platform linux/amd64 \
-#     -t elemenx/php74-alpine-base:7.4.33-cve-2026-109619 \
+#     -t writing/docker-php74-fpm-alpine-base:7.4.33-cve-2026-109619 \
 #     -f Dockerfile .
 FROM php:7.4-cli-alpine3.14
 

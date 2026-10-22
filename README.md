@@ -1,4 +1,4 @@
-# elemenx/php74-alpine-base（PHP 7.4.33 + CVE-2026-109618/109619 补丁）
+# writing/docker-php74-fpm-alpine-base（PHP 7.4.33 + CVE-2026-109618/109619 补丁）
 
 ## 1. 这次修的是什么
 
@@ -16,7 +16,7 @@
 - 7.4 分支：<https://github.com/php/php-src/tree/PHP-7.4-CVE-2026-109618-109619>
 - 补丁提交：<https://github.com/php/php-src/commit/712e60f9edfd03f0960fc4fc3c2c375f42b90aa2>
 
-本目录就是把该补丁打进 PHP 7.4.33，重建 `elemenx/php74-alpine-base`。
+本目录就是把该补丁打进 PHP 7.4.33，重建 `writing/docker-php74-fpm-alpine-base`。
 
 > 已在 Apple Silicon + Docker buildx（`--platform linux/amd64`）实测构建通过：
 > `php -v` 为 PHP 7.4.33，`ini_get('max_multipart_body_parts')` 为 `"-1"`，
@@ -94,7 +94,7 @@ Dockerfile 做的事：
 docker buildx build \
   --platform linux/amd64 \
   --build-arg APK_MIRROR=https://mirrors.aliyun.com/alpine \
-  -t elemenx/php74-alpine-base:7.4.33-cve-2026-109619 \
+  -t writing/docker-php74-fpm-alpine-base:7.4.33-cve-2026-109619 \
   -f container/php74-base/Dockerfile \
   container/php74-base \
   --load
@@ -111,7 +111,7 @@ docker buildx build \
 ## 5. 验证
 
 ```bash
-IMG=elemenx/php74-alpine-base:7.4.33-cve-2026-109619
+IMG=writing/docker-php74-fpm-alpine-base:7.4.33-cve-2026-109619
 
 # 1) 版本必须是 7.4.33
 docker run --rm $IMG php -v
@@ -140,7 +140,7 @@ docker run --rm $IMG composer --version
 `:latest`，不破坏现有 CI）：
 
 ```dockerfile
-ARG PHP_BASE_IMAGE=elemenx/php74-alpine-base:latest
+ARG PHP_BASE_IMAGE=writing/docker-php74-fpm-alpine-base:latest
 FROM ${PHP_BASE_IMAGE}
 ```
 
@@ -148,20 +148,20 @@ FROM ${PHP_BASE_IMAGE}
 
 ```bash
 docker build \
-  --build-arg PHP_BASE_IMAGE=elemenx/php74-alpine-base:7.4.33-cve-2026-109619 \
+  --build-arg PHP_BASE_IMAGE=writing/docker-php74-fpm-alpine-base:7.4.33-cve-2026-109619 \
   -t your-app:patched .
 ```
 
 确认没问题后，也可以直接把新镜像 retag 成 `:latest` 推回仓库，应用侧就不用改：
 
 ```bash
-docker tag elemenx/php74-alpine-base:7.4.33-cve-2026-109619 elemenx/php74-alpine-base:latest
-docker push elemenx/php74-alpine-base:7.4.33-cve-2026-109619
-docker push elemenx/php74-alpine-base:latest
+docker tag writing/docker-php74-fpm-alpine-base:7.4.33-cve-2026-109619 writing/docker-php74-fpm-alpine-base:latest
+docker push writing/docker-php74-fpm-alpine-base:7.4.33-cve-2026-109619
+docker push writing/docker-php74-fpm-alpine-base:latest
 ```
 
 `container/jiulong/Dockerfile`、`container/hz-bank/Dockerfile` 等使用
-`elemenx/php74-alpine-base` 的，按同样方式换 tag（或 retag 后推 `elemenx` 命名空间）。
+`writing/docker-php74-fpm-alpine-base` 的，按同样方式换 tag（或 retag 后推 `writing` 命名空间）。
 
 ## 7. 临时缓解（不能替代升级）
 
