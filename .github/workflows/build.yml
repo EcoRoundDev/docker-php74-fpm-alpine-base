@@ -36,4 +36,4 @@ jobs:
           platforms: linux/amd64
           push: true
           tags: |
-            writing/docker-php74-fpm-alpine-base:latest
+            writing/php74-fpm-alpine-base:latest
