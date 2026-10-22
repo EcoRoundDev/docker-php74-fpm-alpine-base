@@ -1,6 +1,6 @@
 # syntax=docker/dockerfile:1
 #
-# writing/php74-alpine-base, rebuilt with PHP 7.4.33 + the official PHP
+# elemenx/php74-alpine-base, rebuilt with PHP 7.4.33 + the official PHP
 # security-team backport for CVE-2026-109618 / CVE-2026-109619 ("PHP2Shell").
 #
 #   advisory : https://www.php.net/archive/2026.php#2026-10-21-5
@@ -12,8 +12,8 @@
 #
 # Build:
 #   docker buildx build --platform linux/amd64 \
-#     -t writing/php74-alpine-base:7.4.33-cve-2026-109619 \
-#     -f container/php74-base/Dockerfile container/php74-base
+#     -t elemenx/php74-alpine-base:7.4.33-cve-2026-109619 \
+#     -f Dockerfile .
 FROM php:7.4-cli-alpine3.14
 
 ARG PHP_VERSION=7.4.33
@@ -29,6 +29,10 @@ COPY patches/php-7.4-CVE-2026-109618-109619.patch /tmp/php-cve.patch
 # Rebuild the interpreter from source with the *same* configure flags as the
 # official image, then apply the security backport. The base image already
 # ships the docker-php-* helper scripts, php.ini and the www-data user.
+#
+# The FPM SAPI is enabled explicitly: the runtime image starts `php-fpm` under
+# supervisord, but the php:7.4-cli-alpine base only builds cli/cgi/phpdbg.
+# --with-fpm-user/group match the official php:7.4-fpm-alpine variant.
 RUN set -eux; \
     sed -i "s|https://dl-cdn.alpinelinux.org/alpine|${APK_MIRROR}|g" /etc/apk/repositories; \
     apk add --no-cache --virtual .php-build-deps \
@@ -80,11 +84,26 @@ RUN set -eux; \
         --enable-phpdbg \
         --enable-phpdbg-readline \
         --with-pear \
+        --enable-fpm \
+        --with-fpm-user=www-data \
+        --with-fpm-group=www-data \
     ; \
     make -j"$(nproc)"; \
     find -type f -name '*.a' -delete; \
     make install; \
+    cd /usr/local/etc; \
+    if [ -d php-fpm.d ]; then \
+        sed 's!=NONE/!=!g' php-fpm.conf.default | tee php-fpm.conf > /dev/null; \
+        cp -v php-fpm.d/www.conf.default php-fpm.d/www.conf; \
+    else \
+        mkdir php-fpm.d; \
+        cp -v php-fpm.conf.default php-fpm.d/www.conf; \
+        { echo '[global]'; echo "include=etc/php-fpm.d/*.conf"; } | tee php-fpm.conf; \
+    fi; \
+    { echo '[global]'; echo 'error_log = /proc/self/fd/2'; echo; echo '[www]'; echo 'access.log = /proc/self/fd/2'; echo; echo 'clear_env = no'; echo; echo 'catch_workers_output = yes'; echo 'decorate_workers_output = no'; } | tee php-fpm.d/docker.conf; \
+    php-fpm -v; \
     find /usr/local -type f -perm '/0111' -exec sh -euxc 'strip --strip-all "$@" || :' -- '{}' +; \
+    cd /usr/src/php; \
     make clean; \
     cp -v php.ini-production "$PHP_INI_DIR/php.ini"; \
     php -v
@@ -177,7 +196,7 @@ RUN set -eux; \
 
 ENV COMPOSER_ALLOW_SUPERUSER=1
 ENV COMPOSER_MEMORY_LIMIT=-1
-ENV PATH="./vendor/bin:$PATH"
+ENV PATH="/var/www/html/vendor/bin:$PATH"
 
 # Keep the shared libraries the extensions link against, drop the build
 # toolchain and the source tree, and set the timezone.
