@@ -1,18 +1,23 @@
 # syntax=docker/dockerfile:1
 #
-# writing/docker-php74-fpm-alpine-base, rebuilt with PHP 7.4.33 + the official PHP
+# writing/php74-fpm-alpine-base, rebuilt with PHP 7.4.33 + the official PHP
 # security-team backport for CVE-2026-109618 / CVE-2026-109619 ("PHP2Shell").
 #
 #   advisory : https://www.php.net/archive/2026.php#2026-10-21-5
 #   branch   : https://github.com/php/php-src/tree/PHP-7.4-CVE-2026-109618-109619
 #   commit   : https://github.com/php/php-src/commit/712e60f9edfd03f0960fc4fc3c2c375f42b90aa2
 #
+# This revision additionally builds GD with JPEG + FreeType support. The
+# previous image compiled GD with no flags, so imagejpeg() / imagecreatefromjpeg()
+# did not exist and Intervention\Image ->encode() (default format: jpg) failed
+# with "Call to undefined function Intervention\Image\Gd\imagejpeg()".
+#
 # Why Alpine 3.14 and not 3.24: see README.md. PHP 7.4 has no OpenSSL 3.x
 # support, so it cannot be built against Alpine >= 3.16 (OpenSSL 3.x).
 #
 # Build:
 #   docker buildx build --platform linux/amd64 \
-#     -t writing/docker-php74-fpm-alpine-base:7.4.33-cve-2026-109619 \
+#     -t writing/php74-fpm-alpine-base:7.4.33-cve-2026-109619-gdjpeg \
 #     -f Dockerfile .
 FROM php:7.4-cli-alpine3.14
 
@@ -100,7 +105,7 @@ RUN set -eux; \
         cp -v php-fpm.conf.default php-fpm.d/www.conf; \
         { echo '[global]'; echo "include=etc/php-fpm.d/*.conf"; } | tee php-fpm.conf; \
     fi; \
-    { echo '[global]'; echo 'error_log = /proc/self/fd/2'; echo; echo '[www]'; echo 'access.log = /proc/self/fd/2'; echo; echo 'clear_env = no'; echo; echo 'catch_workers_output = yes'; echo 'decorate_workers_output = no'; } | tee php-fpm.d/docker.conf; \
+    { echo '[global]'; echo 'error_log = /proc/self/fd/2'; echo; echo '[www]'; echo 'access.log = /proc/self/fd/2'; echo; echo 'clear_env = no'; echo 'catch_workers_output = yes'; echo 'decorate_workers_output = no'; } | tee php-fpm.d/docker.conf; \
     php-fpm -v; \
     find /usr/local -type f -perm '/0111' -exec sh -euxc 'strip --strip-all "$@" || :' -- '{}' +; \
     cd /usr/src/php; \
@@ -148,10 +153,22 @@ RUN apk add --no-cache --virtual .ext-build-deps \
 # Extensions from the original Dockerfile.
 # "pdo" and "json" are compiled into PHP 7.4 already; installing them as
 # shared modules only produces "Module already loaded" warnings, so they are
-# intentionally left out. GD is configured exactly as before (no extra flags).
+# intentionally left out.
+#
+# GD: jpeg / freetype are compile-time switches and default to "no" in PHP 7.4.
+# Without --with-jpeg, PHP does not even register imagejpeg() or
+# imagecreatefromjpeg() (this is NOT a php.ini switch), so
+# Intervention\Image ->encode() (default format "jpg") fails with:
+#
+#   Call to undefined function Intervention\Image\Gd\imagejpeg()
+#
+# libpng is a hard dependency in PHP 7.4 ("dnl libpng is always required") and
+# has no --with-png switch, so PNG support is always compiled in. WebP and XPM
+# stay disabled on purpose; add libwebp-dev + --with-webp here if the app ever
+# needs WebP.
 RUN set -eux; \
     docker-php-ext-configure opcache --enable-opcache; \
-    docker-php-ext-configure gd; \
+    docker-php-ext-configure gd --with-freetype --with-jpeg; \
     docker-php-ext-install -j"$(nproc)" \
         opcache \
         mysqli \
@@ -162,7 +179,8 @@ RUN set -eux; \
         zip \
         bz2 \
         pcntl \
-        bcmath
+        bcmath; \
+    php -r 'exit((int) !(function_exists("imagejpeg") && function_exists("imagecreatefromjpeg") && function_exists("imagepng") && function_exists("imagecreatefrompng")));'
 
 ENV SWOOLE_VERSION=4.8.1
 
